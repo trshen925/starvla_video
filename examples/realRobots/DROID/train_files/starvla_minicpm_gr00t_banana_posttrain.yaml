@@ -1,0 +1,82 @@
+run_id: minicpm_gr00t_banana_posttrain_30k
+run_root_dir: results/Checkpoints
+seed: 42
+wandb_entity: trshen925-peking-university
+wandb_project: gen2act
+is_debug: false
+version_id: "0.21"
+
+framework:
+  name: MiniCPMGR00T
+  qwenvl:
+    base_vlm: playground/Pretrained_models/MiniCPM-V-4.6
+    attn_implementation: sdpa
+    enable_gradient_checkpointing: true
+  action_model:
+    action_model_type: DiT-B
+    action_dim: 8
+    state_dim: 8
+    action_horizon: 15
+    repeated_diffusion_steps: 2
+    num_inference_timesteps: 4
+    num_target_vision_tokens: 32
+    diffusion_model_cfg:
+      cross_attention_dim: 1024
+      num_layers: 12
+      output_dim: 1024
+      dropout: 0.1
+      final_dropout: true
+      interleave_self_attention: true
+      norm_type: ada_norm
+
+datasets:
+  vla_data:
+    dataset_py: hdf5_banana_posttrain
+    root: /mnt/pfs/users/shentingrui/code/robo/video_gen/gen2act/data/robolab-pi05-banana-in-bowl-100/BananaInBowlUniformInitPose20cmTask
+    cache_root: /mnt/pfs/users/shentingrui/code/robo/video_gen/gen2act/data/robolab-pi05-banana-in-bowl-100/BananaInBowlUniformInitPose20cmTask/posttrain_cache_448
+    file_glob: "*.hdf5"
+    obs_image_size: [448, 448]
+    resize_workerside: true
+    action_path: actions
+    normalize_actions_states: true
+    action_q01: [-0.310128, -0.595406, -0.350657, -2.814890, -0.515495, 1.659108, -1.510504, 0.0]
+    action_q99: [0.410902, 0.987285, 0.275238, -1.025782, 0.359580, 2.867717, 1.707022, 1.0]
+    state_q01: [-0.305574, -0.621397, -0.347386, -2.812983, -0.507615, 1.682799, -1.500349, 0.0]
+    state_q99: [0.407265, 0.980831, 0.266754, -1.058859, 0.359783, 2.862596, 1.704622, 1.0]
+    state_paths: [proprio_obs/arm_joint_pos, proprio_obs/gripper_pos]
+    instruction: "Place the banana in the bowl."
+    action_horizon: 15
+    max_samples: null
+    per_device_batch_size: 2
+    num_workers: 4
+    persistent_workers: true
+    prefetch_factor: 4
+    pin_memory: true
+
+trainer:
+  pretrained_checkpoint: /mnt/pfs/users/shentingrui/code/robo/video_gen/gen2act/starVLA/results/Checkpoints/minicpm_gr00t_gen2act_droid_h15_vlmft/checkpoints/steps_145000_pytorch_model.pt
+  is_resume: false
+  max_train_steps: 30000
+  num_warmup_steps: 1500
+  save_interval: 5000
+  eval_interval: 1000
+  learning_rate:
+    base: 1.0e-05
+    qwen_vl_interface: 5.0e-07
+    action_model: 5.0e-05
+  lr_scheduler_type: cosine
+  scheduler_specific_kwargs: {}
+  freeze_modules: ''
+  loss_scale:
+    vla: 1.0
+  max_grad_norm: 1.0
+  gradient_accumulation_steps: 1
+  gradient_checkpointing: true
+  gradient_clipping: 1.0
+  logging_frequency: 10
+  optimizer:
+    name: AdamW
+    betas: [0.9, 0.95]
+    eps: 1.0e-08
+    weight_decay: 1.0e-06
+  save_format: pt

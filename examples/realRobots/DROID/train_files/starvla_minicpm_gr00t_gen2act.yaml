@@ -1,0 +1,79 @@
+run_id: minicpm_gr00t_gen2act_droid_h15
+run_root_dir: results/Checkpoints
+seed: 42
+wandb_entity: your_wandb_entity
+wandb_project: starVLA_gen2act_droid
+is_debug: false
+version_id: "0.21"
+
+framework:
+  name: MiniCPMGR00T
+  qwenvl:
+    base_vlm: openbmb/MiniCPM-V-4.6
+    attn_implementation: sdpa
+    enable_gradient_checkpointing: true
+  action_model:
+    action_model_type: DiT-B
+    action_dim: 8
+    state_dim: 8
+    # Match Gen2Act C39: train on 15 consecutive 15 Hz controls.  Eight is the
+    # receding-horizon execution count, not the training target length.
+    action_horizon: 15
+    repeated_diffusion_steps: 2
+    num_inference_timesteps: 4
+    num_target_vision_tokens: 32
+    diffusion_model_cfg:
+      cross_attention_dim: 1024
+      num_layers: 12
+      output_dim: 1024
+      dropout: 0.1
+      final_dropout: true
+      interleave_self_attention: true
+      norm_type: ada_norm
+
+datasets:
+  vla_data:
+    dataset_py: raw_droid_ex_gen2act
+    root: /mnt/pfs/data/shentingrui/droid-ex-3000-out
+    mapping_path: /mnt/pfs/users/shentingrui/code/robo/video_gen/gen2act/gen2act/metadata/c42_c39_to_raw_droid_mapping.json
+    obs_image_size: [224, 224]
+    num_source_frames: 8
+    # Match Gen2Act C39: sample the demonstration from a target-aware temporal
+    # crop that always contains the current target observation.
+    fps: 15
+    source_time_crop: true
+    source_crop_min_seconds: 10.0
+    source_crop_max_seconds: 30.0
+    action_horizon: 15
+    # null means all 565,946 event-balanced C39 windows. Override this for smoke tests.
+    max_samples: null
+    per_device_batch_size: 1
+    num_workers: 2
+    persistent_workers: true
+    prefetch_factor: 2
+
+trainer:
+  max_train_steps: 50000
+  num_warmup_steps: 2500
+  save_interval: 5000
+  eval_interval: 1000
+  learning_rate:
+    base: 1.0e-05
+    qwen_vl_interface: 5.0e-06
+    action_model: 1.0e-04
+  lr_scheduler_type: cosine
+  scheduler_specific_kwargs: {}
+  freeze_modules: qwen_vl_interface
+  loss_scale:
+    vla: 1.0
+  max_grad_norm: 1.0
+  gradient_accumulation_steps: 1
+  gradient_checkpointing: true
+  gradient_clipping: 1.0
+  logging_frequency: 10
+  optimizer:
+    name: AdamW
+    betas: [0.9, 0.95]
+    eps: 1.0e-08
+    weight_decay: 1.0e-06
+  save_format: pt
